@@ -1,5 +1,6 @@
 module OliveMarkdown
-import Olive: olive_save, Project, ProjectExport, Cell
+import Olive: olive_save, Project, Cell, build, olive_read
+using Olive: Connection, Directory, style!, build_base_cell, ProjectExport, Component
 
 function make_cellstr(cell::Cell{<:Any}, celltype::Any)
     cellstr::String = """\n```$celltype
@@ -33,14 +34,13 @@ function olivemd_save(cells::Vector{Cell}, path::AbstractString; mdcellt::Type =
         touch(path)
     end
     open(path, "w") do o::IOStream
-        for e in 1:length(cells)
+        n = length(cells)
+        for e in 1:n
             cell = cells[e]
             cell_str = olivemd_string(cell)
-            if typeof(cell) == mdcellt && typeof(cells[e + 1]) == mdcellt
-                if cell_str[end] == '\n'
+            if typeof(cell) == mdcellt && e != n && typeof(cells[e + 1]) == mdcellt
+                if cell_str[end] != '\n'
                     cell_str = cell_str * "\n"
-                else
-                    cell_str = cell_str * "\n\n"
                 end
             end
             write(o, cell_str)
@@ -48,8 +48,113 @@ function olivemd_save(cells::Vector{Cell}, path::AbstractString; mdcellt::Type =
     end
 end
 
+function construct_mdcell(type::Type{Cell{<:Any}}, source::String, outputs::Any = nothing)
+    type(source, outputs)
+end
+
+function construct_mdcell(type::Type{Cell{:julia}}, source::String, outputs::Any = nothing)
+    Cell{:code}(source, outputs)
+end
+
+function construct_mdcell(type::Type{Cell{:toml}}, source::String, outputs::Any = nothing)
+    Cell{:tomlvalues}(source, outputs)
+end
+
 function olive_save(p::Project{<:Any}, pe::ProjectExport{:md})
-#    IPyCells.save(p.data[:cells], p.data[:path])
+    olivemd_save(p[:cells], p[:path])
+end
+
+function parse_omd_cell(raw::AbstractString)
+    code_found = findfirst("``", raw)
+    if code_found == 1:2
+        nextend = findfirst("\n", raw)
+        if isnothing(nextend)
+            nextend = findfirst(" ", raw)
+            @warn raw
+            if isnothing(nextend)
+                nextend = length(raw)
+            end
+        end
+        celltend = minimum(nextend)
+        cellt = replace(raw[begin:celltend], "`" => "", " " => "", "\n" => "")
+        if cellt == "output"
+            return(raw[celltend + 1:end])
+        end
+        cell = construct_mdcell(Cell{Symbol(cellt)}, raw[celltend + 1:end])
+        return(cell)
+    end
+    return(Cell{:markdown}(raw))
+end
+
+is_invalid_cellstr(str::AbstractString) = begin
+    badvalues = ('\n', ' ', '`')
+    isnothing(findfirst(x -> ~(x in badvalues), str))
+end
+
+function read_olivemd(path::String)
+    cells = Vector{Cell}()
+    position::Int64 = 1
+    raw::String = read(path, String)
+    while true
+        next_block = findnext("```", raw, position)
+        next_nn = findnext("\n\n", raw, position)
+        no_nn = isnothing(next_nn)
+        no_block = isnothing(next_block)
+        selected_upper = if no_block && no_nn
+            nothing
+        elseif no_block
+            next_nn
+        elseif no_nn
+            next_block
+        else
+            mins = (minimum(next_nn), minimum(next_block))
+            if findmin(mins) == 1
+                next_nn
+            else
+                next_block
+            end
+        end
+        if isnothing(selected_upper)
+            # add last md cell, break loop
+            final_str = raw[position:end]
+            if is_invalid_cellstr(final_str)
+                break
+            end
+            cell = parse_omd_cell(final_str)
+            if typeof(cell) <: AbstractString
+                cells[end].outputs = cell
+            else
+                push!(cells, cell)
+            end
+            break
+        end
+        n = length(selected_upper)
+        selected_upper = minimum(selected_upper)
+        selected_str = raw[position:selected_upper - 1]
+        if is_invalid_cellstr(selected_str)
+            position = selected_upper + 1
+            continue
+        end
+        cell = parse_omd_cell(selected_str)
+        if typeof(cell) <: AbstractString
+            cells[end].outputs = cell
+        else
+            push!(cells, cell)
+        end
+        position = selected_upper + 1
+    end
+    return(cells)::Vector{Cell}
+end
+
+function build(c::Connection, cell::Cell{:md},
+    d::Directory)
+    cell_component::Component{:div} = build_base_cell(c, cell, d)
+    style!(cell_component, "background-color" => "#afc8f0")
+    cell_component
+end
+
+function olive_read(cell::Cell{:md})::Vector{Cell}
+    read_olivemd(cell.outputs)
 end
 
 end # module OliveMarkdown
