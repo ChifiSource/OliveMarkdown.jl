@@ -149,7 +149,7 @@ end
 function build(c::Connection, cell::Cell{:md},
     d::Directory)
     cell_component::Component{:div} = build_base_cell(c, cell, d)
-    style!(cell_component, "background-color" => "#afc8f0")
+    style!(cell_component, "background-color" => "#5d6675")
     cell_component
 end
 
