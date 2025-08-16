@@ -38,8 +38,18 @@ function olivemd_string(cell::Cell{:tomlvalues})
     make_cellstr(cell, "toml")
 end
 
-function olivemd_string(cell::Cell{:image})
+function imagecell_omd_str(cell::Cell{<:Any})
+    fmt = lowercase(cell.source)
+    outpimg = base64img("cell$(cell.id)", cell.outputs[2], fmt)
+    b64 = replace(outpimg[:src], "data:image/$fmt;base64," => "")
+    """```imgb64
+    $(cell.source)!|$(cell.outputs[1])!|$(b64)!|$(cell.outputs[3])!|$(cell.outputs[4])
+    ```
+    """
+end
 
+function olivemd_string(cell::Cell{:image})
+    imagecell_omd_str(cell)
 end
 
 function olivemd_string(cell::Cell{:vimage})
@@ -47,7 +57,7 @@ function olivemd_string(cell::Cell{:vimage})
 end
 
 function olivemd_string(cell::Cell{:imagero})
-    
+    imagecell_omd_str(cell)
 end
 
 function olivemd_string(cell::Cell{:vimagero})
@@ -90,7 +100,8 @@ function construct_mdcell(type::Type{Cell{:svg}}, source::String, outputs::Any =
 end
 
 function construct_mdcell(type::Type{Cell{:imgb64}}, source::String, outputs::Any = nothing)
-
+    splts = split(cell.source, "!|")
+    Cell{:image}(replace(splits[1], " " => "", "\n" => ""), join(splts[2:end], "!|"))
 end
 
 function olive_save(p::Project{<:Any}, pe::ProjectExport{:md})
