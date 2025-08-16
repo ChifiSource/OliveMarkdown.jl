@@ -1,5 +1,6 @@
 module OliveMarkdown
 import Olive: olive_save, Project, Cell, build, olive_read
+import Olive.IPyCells: AbstractCell
 using Olive: Connection, Directory, style!, build_base_cell, ProjectExport, Component
 
 function make_cellstr(cell::Cell{<:Any}, celltype::Any)
@@ -21,12 +22,36 @@ function olivemd_string(cell::Cell{:markdown})
     cell.source::String
 end
 
+function olivemd_string(cell::Cell{:mdro})
+    cell.source::String
+end
+
 function olivemd_string(cell::Cell{:code})
+    make_cellstr(cell, "julia")::String
+end
+
+function olivemd_string(cell::Cell{:codero})
     make_cellstr(cell, "julia")::String
 end
 
 function olivemd_string(cell::Cell{:tomlvalues})
     make_cellstr(cell, "toml")
+end
+
+function olivemd_string(cell::Cell{:image})
+
+end
+
+function olivemd_string(cell::Cell{:vimage})
+    make_cellstr(cell, "svg")
+end
+
+function olivemd_string(cell::Cell{:imagero})
+    
+end
+
+function olivemd_string(cell::Cell{:vimagero})
+    make_cellstr(cell, "svg")
 end
 
 function olivemd_save(cells::Vector{Cell}, path::AbstractString; mdcellt::Type = Cell{:markdown})
@@ -48,7 +73,7 @@ function olivemd_save(cells::Vector{Cell}, path::AbstractString; mdcellt::Type =
     end
 end
 
-function construct_mdcell(type::Type{Cell{<:Any}}, source::String, outputs::Any = nothing)
+function construct_mdcell(type::Type{<:AbstractCell}, source::String, outputs::Any = nothing)
     type(source, outputs)
 end
 
@@ -58,6 +83,14 @@ end
 
 function construct_mdcell(type::Type{Cell{:toml}}, source::String, outputs::Any = nothing)
     Cell{:tomlvalues}(source, outputs)
+end
+
+function construct_mdcell(type::Type{Cell{:svg}}, source::String, outputs::Any = nothing)
+    Cell{:vimage}(source, outputs)
+end
+
+function construct_mdcell(type::Type{Cell{:imgb64}}, source::String, outputs::Any = nothing)
+
 end
 
 function olive_save(p::Project{<:Any}, pe::ProjectExport{:md})
