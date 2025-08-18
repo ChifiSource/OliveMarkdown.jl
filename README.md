@@ -27,3 +27,17 @@ using Toolips
 Nothing
 ```output
 ```
+### adding
+To add `OliveMarkdown`, either load it before starting `Olive` or add `OliveMarkdown` to your `olive` home. To learn more, check out [installing extensions](https://chifidocs.com/olive/Olive/installing-extensions).
+```julia
+using Pkg
+
+Pkg.add("OliveMarkdown")
+
+# unstable?
+Pkg.add("OliveMarkdown", rev = "Unstable")
+```
+```julia
+# start headless example:
+using OliveMarkdown; using Olive; Olive.start(headless = true)
+```
